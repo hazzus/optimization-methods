@@ -43,9 +43,8 @@ class TestCase:
                 raise PreparationException('Can\'t build matrix')
             self.matrix[j] /= self.matrix[j][p]
             for i, v in enumerate(self.matrix):
-                if i != j and abs(v[p] >= self.EPS):
+                if i != j and abs(v[p]) >= self.EPS:
                     v -= self.matrix[j] * v[p]
-        self.matrix = self.matrix
 
     def _make_min(self):
         self.f *= -1

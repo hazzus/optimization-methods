@@ -13,26 +13,28 @@ class IterationLimitException(Exception):
 
 
 def choose_col(m: np.ndarray):
-    n = m.shape[1] - 1
-    for i in range(1, n + 1):
-        if m[-1][i] >= EPS:
-            return i
-    return None
+    n = m.shape[1]
+    maxi = -1
+    for i in range(1, n):
+        if m[-1][i] >= EPS and (maxi == -1 or m[-1][i] > m[-1][maxi]):
+            maxi = i
+    return None if maxi == -1 else maxi
 
 
 def choose_row(m: np.ndarray, col: int, pos):
-    max_v = 1e9
+    min_v = 1e9
     res = -1
     b = m[:, 0]
+    print('B:', b)
     column = m[:, col]
     for i in range(len(b) - 1):
-        if column[i] > EPS > abs(b[i] / column[i] - max_v) and pos[res] > pos[i]:
+        if column[i] > EPS > abs(b[i] / column[i] - min_v) and pos[res] > pos[i]:
             res = i
-            max_v = b[i] / column[i]
+            min_v = b[i] / column[i]
             continue
-        if column[i] > EPS and b[i] / column[i] < max_v:
+        if column[i] > EPS and b[i] / column[i] < min_v:
             res = i
-            max_v = b[i] / column[i]
+            min_v = b[i] / column[i]
     if res == -1:
         return None
     return res
@@ -46,24 +48,32 @@ def simplex(tc: TestCase):
     sorted_pos = []
     for v in tc.matrix:
         for p in tc.pos:
-            if v[p] >= 0.5:
+            print('element', p, v[p])
+            if abs(1 - v[p]) <= EPS:
                 sorted_pos.append(p)
+    print('Sorted pos', sorted_pos)
+    # todo nahuya?
     for j in range(len(tc.pos)):
         m[-1] -= m[-1][sorted_pos[j]] * m[j]
+    print('New matrix\n', m)
     throw = True
     for step in range(IT_LIM):
+        # leading column
         col = choose_col(m)
         if col is None:
             throw = False
             break
+        # leading row
         row = choose_row(m, col, tc.pos)
         if row is None:
             return None
+        # gauss to create 1 and 0 column
         m[row] /= m[row][col]
         for i, v in enumerate(m):
             if i != row and abs(v[col]) >= 1e-6:
                 v -= m[row] * v[col]
         sorted_pos[row] = col
+        print('Iteration', step, 'row', row, 'col', col, 'new matrix\n', m)
 
     if throw:
         raise IterationLimitException('Iteration limit exceeded')
