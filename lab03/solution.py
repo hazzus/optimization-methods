@@ -40,7 +40,9 @@ def choose_row(m: np.ndarray, col: int, pos):
 
 def simplex(tc: TestCase):
     m = copy.deepcopy(tc.matrix)
+    print(m)
     m = np.vstack((m, np.append(np.array([0]), copy.deepcopy(tc.f))))
+    print(m)
     sorted_pos = []
     for v in tc.matrix:
         for p in tc.pos:
@@ -73,11 +75,11 @@ def simplex(tc: TestCase):
 
 
 def find_acceptable_solution(tc):
-    full_matrix_np = np.array(tc.matrix)
+    full_matrix_np = tc.matrix
     cur_matrix = copy.deepcopy(full_matrix_np)
     m = full_matrix_np.shape[0]
     n = full_matrix_np.shape[1]
-    f = np.array([0] * (full_matrix_np.shape[1] - 1) + [-1] * full_matrix_np.shape[0])
+    f = np.array([0] * (n - 1) + [-1] * m)
     cur_matrix_list = cur_matrix.tolist()
     for i in range(m):
         additional_line = [0.0] * m
@@ -88,8 +90,10 @@ def find_acceptable_solution(tc):
     tcc.f = f
     tcc.matrix = np.array(cur_matrix_list)
     tcc.pos = tuple([i + n for i in range(m)])
+    print(tcc)
     opt, positions, val = simplex(tcc)
-    if abs(val) > 1e-6:
+    print(opt, positions, val)
+    if abs(val) > EPS:
         return None
     res = opt.tolist()
     return positions, res[:-m]
@@ -112,8 +116,12 @@ def solve(tc, tt=TaskType.MIN):
         if sol is None:
             return None
         pos, vec = sol
+        print(np.dot(vec, tc.f))
+
         tc.pos = pos
         point, val = _solve_max(tc)
+        print(vec)
+        print(point)
         return point, (-1 if tt == TaskType.MIN else 1) * val, vec
     else:
         res = _solve_max(tc)
