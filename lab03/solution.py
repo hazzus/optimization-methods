@@ -1,4 +1,5 @@
 import copy
+import math
 
 from testing import TestCase, TaskType
 
@@ -21,20 +22,23 @@ def choose_col(m: np.ndarray):
     return None if maxi == -1 else maxi
 
 
-def choose_row(m: np.ndarray, col: int, pos):
-    min_v = 1e9
+def choose_row(m, col, basis):
+    # from leading column select positive minimal by ratio to first column element
+    # it's index is leading row
+    min_ratio = math.inf
     res = -1
     b = m[:, 0]
-    print('B:', b)
     column = m[:, col]
     for i in range(len(b) - 1):
-        if column[i] > EPS > abs(b[i] / column[i] - min_v) and pos[res] > pos[i]:
-            res = i
-            min_v = b[i] / column[i]
+        if column[i] <= EPS:
             continue
-        if column[i] > EPS and b[i] / column[i] < min_v:
+        ratio = b[i] / column[i]
+        if abs(ratio - min_ratio) < EPS and basis[res] > basis[i]:
             res = i
-            min_v = b[i] / column[i]
+            min_ratio = ratio
+        elif ratio < min_ratio:
+            res = i
+            min_ratio = ratio
     if res == -1:
         return None
     return res
@@ -42,71 +46,60 @@ def choose_row(m: np.ndarray, col: int, pos):
 
 def simplex(tc: TestCase):
     m = copy.deepcopy(tc.matrix)
-    print(m)
     m = np.vstack((m, np.append(np.array([0]), copy.deepcopy(tc.f))))
-    print(m)
-    sorted_pos = []
+    sorted_basis = []
+    # make basis ordered by rows
     for v in tc.matrix:
-        for p in tc.pos:
-            print('element', p, v[p])
+        for p in tc.basis:
             if abs(1 - v[p]) <= EPS:
-                sorted_pos.append(p)
-    print('Sorted pos', sorted_pos)
-    # todo nahuya?
-    for j in range(len(tc.pos)):
-        m[-1] -= m[-1][sorted_pos[j]] * m[j]
-    print('New matrix\n', m)
+                sorted_basis.append(p)
+    # make 0 at basis positions in functional row
+    for j in range(len(tc.basis)):
+        m[-1] -= m[-1][sorted_basis[j]] * m[j]
     throw = True
     for step in range(IT_LIM):
-        # leading column
+        # leading column c_l = argmax(c_i) | c_i >= 0
         col = choose_col(m)
         if col is None:
+            # all values in functional row are negative => solution reached
             throw = False
             break
         # leading row
-        row = choose_row(m, col, tc.pos)
+        row = choose_row(m, col, tc.basis)
         if row is None:
+            # no positive elements => no optimum
             return None
-        # gauss to create 1 and 0 column
+        # gauss to create 1 on leading position and 0 on rows on same column
         m[row] /= m[row][col]
         for i, v in enumerate(m):
-            if i != row and abs(v[col]) >= 1e-6:
+            if i != row and abs(v[col]) >= EPS:
                 v -= m[row] * v[col]
-        sorted_pos[row] = col
-        print('Iteration', step, 'row', row, 'col', col, 'new matrix\n', m)
+        # including new vector into basis
+        sorted_basis[row] = col
+        # print('Iteration', step, 'row', row, 'col', col, 'new matrix\n', m)
 
     if throw:
         raise IterationLimitException('Iteration limit exceeded')
 
     res = np.zeros(m.shape[1] - 1)
-    for i, p in enumerate(sorted_pos):
-        res[p - 1] = m[i][0]
-    return res, sorted_pos, -m[-1][0]
+    for i, p in enumerate(sorted_basis):
+        res[p-1] = m[i][0]
+    return res, sorted_basis, -m[-1][0]
 
 
-def find_acceptable_solution(tc):
-    full_matrix_np = tc.matrix
-    cur_matrix = copy.deepcopy(full_matrix_np)
-    m = full_matrix_np.shape[0]
-    n = full_matrix_np.shape[1]
-    f = np.array([0] * (n - 1) + [-1] * m)
-    cur_matrix_list = cur_matrix.tolist()
-    for i in range(m):
-        additional_line = [0.0] * m
-        additional_line[i] = 1.0
-        cur_matrix_list[i] += additional_line
+def find_first_basis(tc):
+    tc_expanded = copy.deepcopy(tc)
+    m, n = tc.matrix.shape
+    tc_expanded.filename += "_expanded"
+    tc_expanded.f = np.array([0.] * (n - 1) + [-1] * m)
+    tc_expanded.matrix = np.concatenate((tc.matrix, np.eye(m)), axis=1)
+    tc_expanded.basis = tuple([i + n for i in range(m)])
 
-    tcc = copy.deepcopy(tc)
-    tcc.f = f
-    tcc.matrix = np.array(cur_matrix_list)
-    tcc.pos = tuple([i + n for i in range(m)])
-    print(tcc)
-    opt, positions, val = simplex(tcc)
-    print(opt, positions, val)
+    optimal_point, new_basis, val = simplex(tc_expanded)
     if abs(val) > EPS:
         return None
-    res = opt.tolist()
-    return positions, res[:-m]
+    res = optimal_point.tolist()
+    return new_basis, res[:-m]
 
 
 def _solve_max(tc):
@@ -114,28 +107,25 @@ def _solve_max(tc):
     result = simplex(tc)
     if result is None:
         return None
-    opt_sol, pos, val = result
+    opt_sol, _, val = result
     return opt_sol, val
 
 
 def solve(tc, tt=TaskType.MIN):
     if tt == TaskType.MIN:
-        tc._make_min()
-    if tc.pos is None:
-        sol = find_acceptable_solution(tc)
+        tc.make_min()
+    if tc.basis is None:
+        sol = find_first_basis(tc)
         if sol is None:
             return None
-        pos, vec = sol
-        print(np.dot(vec, tc.f))
-
-        tc.pos = pos
+        basis, vec = sol
+        print('Found basis:', basis)
+        tc.basis = basis
         point, val = _solve_max(tc)
-        print(vec)
-        print(point)
         return point, (-1 if tt == TaskType.MIN else 1) * val, vec
     else:
         res = _solve_max(tc)
         if res is None:
             return None
-        opt, val = res
-        return opt, (-1 if tt == TaskType.MIN else 1) * val, None
+        point, val = res
+        return point, (-1 if tt == TaskType.MIN else 1) * val, None

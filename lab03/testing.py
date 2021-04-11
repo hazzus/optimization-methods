@@ -23,16 +23,16 @@ class TestCase:
             self.matrix = []
             for i in range(n):
                 self.matrix.append(list(map(self._store_type, file.readline().split())))
-            pos = file.readline()
-            self.pos = None if pos == 'no' else tuple(map(int, pos.split()))
+            basis = file.readline()
+            self.basis = None if basis == 'no' else tuple(map(int, basis.split()))
         self.matrix = np.array(self.matrix)
 
     def __str__(self):
-        return 'testcase name: {}\nf: {}\nm: {}\npos: {}\n==='.format(self.filename, self.f, self.matrix, self.pos)
+        return 'testcase name: {}\nf: {}\nm:\n{}\nbasis: {}\n==='.format(self.filename, self.f, self.matrix, self.basis)
 
     def prepare(self):
         used = {}
-        for p in self.pos:
+        for p in self.basis:
             j = -1
             for i, v in enumerate(self.matrix):
                 if v[p] != 0 and (i not in used):
@@ -46,7 +46,7 @@ class TestCase:
                 if i != j and abs(v[p]) >= self.EPS:
                     v -= self.matrix[j] * v[p]
 
-    def _make_min(self):
+    def make_min(self):
         self.f *= -1
 
 
