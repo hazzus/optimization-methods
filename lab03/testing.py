@@ -24,7 +24,9 @@ class TestCase:
             for i in range(n):
                 self.matrix.append(list(map(self._store_type, file.readline().split())))
             basis = file.readline()
-            self.basis = None if basis == 'no' else tuple(map(int, basis.split()))
+            self.basis = None if basis == 'no\n' else tuple(map(int, basis.split()))
+            task_type = file.readline()
+            self.type = TaskType.MIN if task_type == 'min' else TaskType.MAX
         self.matrix = np.array(self.matrix)
 
     def __str__(self):

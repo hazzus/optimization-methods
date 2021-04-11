@@ -13,7 +13,7 @@ class IterationLimitException(Exception):
     pass
 
 
-def choose_col(m: np.ndarray):
+def choose_col(m):
     n = m.shape[1]
     maxi = -1
     for i in range(1, n):
@@ -87,7 +87,7 @@ def simplex(tc: TestCase):
     return res, sorted_basis, -m[-1][0]
 
 
-def find_first_basis(tc):
+def find_first_basis(tc: TestCase):
     tc_expanded = copy.deepcopy(tc)
     m, n = tc.matrix.shape
     tc_expanded.filename += "_expanded"
@@ -102,7 +102,7 @@ def find_first_basis(tc):
     return new_basis, res[:-m]
 
 
-def _solve_max(tc):
+def _solve_max(tc: TestCase):
     tc.prepare()
     result = simplex(tc)
     if result is None:
@@ -111,8 +111,8 @@ def _solve_max(tc):
     return opt_sol, val
 
 
-def solve(tc, tt=TaskType.MIN):
-    if tt == TaskType.MIN:
+def solve(tc: TestCase):
+    if tc.type == TaskType.MIN:
         tc.make_min()
     if tc.basis is None:
         sol = find_first_basis(tc)
@@ -122,10 +122,10 @@ def solve(tc, tt=TaskType.MIN):
         print('Found basis:', basis)
         tc.basis = basis
         point, val = _solve_max(tc)
-        return point, (-1 if tt == TaskType.MIN else 1) * val, vec
+        return point, (-1 if tc.type == TaskType.MIN else 1) * val, vec
     else:
         res = _solve_max(tc)
         if res is None:
             return None
         point, val = res
-        return point, (-1 if tt == TaskType.MIN else 1) * val, None
+        return point, (-1 if tc.type == TaskType.MIN else 1) * val, None
